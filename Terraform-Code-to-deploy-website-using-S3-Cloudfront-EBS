@@ -1,7 +1,11 @@
+variable "aws_access_key" {}
+variable "aws_secret_key" {}
+variable "region" {}
+
 provider "aws" {
-  region     = "us-west-1"
-  access_key = "AKIAS4V3KJZXIMMVYPEV"
-  secret_key = "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"
+  access_key = var.aws_access_key
+  secret_key = var.aws_secret_key
+  region     = var.region
 }
 
 #Create a virtual network
