@@ -1,6 +1,7 @@
-#Define the provider
 provider "aws" {
-    region = "us-west-1"
+  region     = "us-west-1"
+  access_key = "AKIAS4V3KJZXIMMVYPEV"
+  secret_key = "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"
 }
 
 #Create a virtual network
@@ -20,21 +21,21 @@ resource "aws_subnet" "my_app-subnet" {
     cidr_block = "10.0.1.0/24"
     map_public_ip_on_launch = true
     depends_on= [aws_vpc.my_vpc]
-    
+
 }
 
 #Define routing table
 resource "aws_route_table" "my_route-table" {
     tags = {
         Name = "MY_Route_table"
-       
+
     }
      vpc_id = aws_vpc.my_vpc.id
 }
 
 #Associate subnet with routing table
 resource "aws_route_table_association" "App_Route_Association" {
-  subnet_id      = aws_subnet.my_app-subnet.id 
+  subnet_id      = aws_subnet.my_app-subnet.id
   route_table_id = aws_route_table.my_route-table.id
 }
 
@@ -42,7 +43,7 @@ resource "aws_route_table_association" "App_Route_Association" {
 #Create internet gateway for servers to be connected to internet
 resource "aws_internet_gateway" "my_IG" {
     tags = {
-        Name = "MY_IGW"  
+        Name = "MY_IGW"
     }
      vpc_id = aws_vpc.my_vpc.id
      depends_on = [aws_vpc.my_vpc]
@@ -95,19 +96,19 @@ resource "aws_key_pair" "App-Instance-Key" {
 
 #Save the key to your local system
 resource "local_file" "Web-Key" {
-    content     = tls_private_key.Web-Key.private_key_pem 
+    content     = tls_private_key.Web-Key.private_key_pem
     filename = "Web-Key.pem"
 }
 
 #Create your webserver instance
 resource "aws_instance" "Web" {
-    ami = "ami-0adbe59da7d24a349"
+    ami = "ami-04b6c97b14c54de18"
     instance_type = "t2.micro"
     tags = {
         Name = "WebServer1"
     }
     count =1
-    subnet_id = aws_subnet.my_app-subnet.id 
+    subnet_id = aws_subnet.my_app-subnet.id
     key_name = "Web-key"
     security_groups = [aws_security_group.App_SG.id]
 
@@ -117,9 +118,9 @@ resource "aws_instance" "Web" {
         user = "ec2-user"
         private_key = tls_private_key.Web-Key.private_key_pem
         host = aws_instance.Web[0].public_ip
-    }    
+    }
     inline = [
-       "sudo yum install httpd  php git -y",
+       "sudo yum install httpd php git -y",
        "sudo systemctl restart httpd",
        "sudo systemctl enable httpd",
     ]
@@ -170,17 +171,16 @@ locals {
 }
 
 #Create a bucket to upload your static data like images
-resource "aws_s3_bucket" "demonewbucket12345" {
-  bucket = "demonewbucket12345"
+resource "aws_s3_bucket" "ashokdevops8s3" {
+  bucket = "ashokdevops8s3"
   acl    = "public-read-write"
-  region = "us-west-1"
-  
+
   versioning {
     enabled = true
   }
 
   tags = {
-    Name = "demonewbucket12345"
+    Name = "ashokdevops8s3"
     Environment = "Prod"
   }
 
@@ -192,16 +192,16 @@ resource "aws_s3_bucket" "demonewbucket12345" {
 
 #Allow public access to the bucket
 resource "aws_s3_bucket_public_access_block" "public_storage" {
- depends_on = [aws_s3_bucket.demonewbucket12345]
- bucket = "demonewbucket12345"
+ depends_on = [aws_s3_bucket.ashokdevops8s3]
+ bucket = "ashokdevops8s3"
  block_public_acls = false
  block_public_policy = false
 }
 
 #Upload your data to S3 bucket
 resource "aws_s3_bucket_object" "Object1" {
-  depends_on = [aws_s3_bucket.demonewbucket12345]
-  bucket = "demonewbucket12345"
+  depends_on = [aws_s3_bucket.ashokdevops8s3]
+  bucket = "ashokdevops8s3"
   acl    = "public-read-write"
   key = "Demo1.PNG"
   source = "web-server-image/Demo1.PNG"
@@ -211,9 +211,9 @@ resource "aws_s3_bucket_object" "Object1" {
 resource "aws_cloudfront_distribution" "tera-cloufront1" {
     depends_on = [ aws_s3_bucket_object.Object1]
     origin {
-        domain_name = aws_s3_bucket.demonewbucket12345.bucket_regional_domain_name
+        domain_name = aws_s3_bucket.ashokdevops8s3.bucket_regional_domain_name
         origin_id = local.s3_origin_id
-    }   
+    }
     enabled = true
       default_cache_behavior {
         allowed_methods = ["DELETE", "GET", "HEAD", "OPTIONS", "PATCH", "POST", "PUT"]
@@ -222,7 +222,7 @@ resource "aws_cloudfront_distribution" "tera-cloufront1" {
 
         forwarded_values {
             query_string = false
-        
+
             cookies {
                forward = "none"
             }
@@ -242,7 +242,7 @@ resource "aws_cloudfront_distribution" "tera-cloufront1" {
      viewer_certificate {
         cloudfront_default_certificate = true
 
-    } 
+    }
 }
 
 #Update the CDN image URL to your webserver code.
@@ -260,7 +260,7 @@ resource "null_resource" "Write_Image" {
                     "echo \"<img src='http://${aws_cloudfront_distribution.tera-cloufront1.domain_name}/${aws_s3_bucket_object.Object1.key}' width='300' height='380'>\" >>/var/www/html/index.html",
                     "echo \"</body>\" >>/var/www/html/index.html",
                     "echo \"</html>\" >>/var/www/html/index.html",
-                    "EOF",    
+                    "EOF",
         ]
   }
 
